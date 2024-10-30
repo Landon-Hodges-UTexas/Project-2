@@ -139,7 +139,7 @@ for(i in nn:n){
   monster_array_it[shift,i] <- monster_array_it[shift,i+1]
   monster_array_it[shift,i+1] <- NA
 }
-unique(monster_array_it$speed)
+monster_array_it$speed <- parse_number(monster_array_it$speed)
 
 #corrections
 monster_array_it$CHA[799] <- "12 (+1)"
