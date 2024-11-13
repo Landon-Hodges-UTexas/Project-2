@@ -17,8 +17,8 @@ library(tidyverse)
 library(ggridges)
 library(rvest)
 library(kableExtra)
+library(GGally)
 ```
-
 
 ```{r better scrape}
 #Reading and splitting the table by lines
@@ -109,9 +109,7 @@ monster_array6 <- select(monster_array5, -excess1, -excess2)
 monster_array6 <- left_join(monster_array6, images_merged, by="name")
 ```
 
-
-
-``` {r data cleaning}
+```{r data cleaning}
 #Loop that takes a character vector of stats, and separates the desc variable into many variables of those stats.
 #I've never killed a man, but God help anyone who touches this code. This took over 8 hours. Don't fuck it up.
 
@@ -230,7 +228,6 @@ pictured[pictured$CR < 1,]
 #knitr::include_graphics(pictured$image[pictured$CR < 1,])
 ```
 
-
 ```{r data}
 #monsters_json <- fromJSON('5e-Monsters.json', flatten = TRUE)
 #monsters <- as_tibble(monsters_json)
@@ -246,27 +243,53 @@ pictured[pictured$CR < 1,]
 #armored <- unnesttest[unnesttest$armor != 'NULL',]
 ```
 
-
 ```{r graphs}
 #UNIVARIATES
 ggplot(monsters) + geom_histogram(aes(CR), binwidth = 1, col = 'red', fill='red', alpha = .6) + theme_light()
 ggplot(monsters) + geom_histogram(aes(AC), binwidth = 1, col = 'red', fill='red', alpha = .6) + theme_light()
-ggplot(monsters) + geom_histogram(aes(CHA), binwidth = 1, col = 'red', fill='red', alpha = .6) + theme_light()
+
+#Comparing core stats by size
+ggplot(monsters) + geom_density(aes(DEX), col = 'red', fill='red', alpha = .3) + geom_density(aes(STR, y=-..density..), col = 'blue', fill='blue', alpha = .3) + theme_light() + facet_wrap(~size)
+
 
 #Faceting relationships by core stat
 facet_by <- stats
 faceting <- pivot_longer(monsters, cols = facet_by, names_to = "facet_by")
 ggplot(faceting) + geom_histogram(aes(x=value), fill='red', binwidth = 1, alpha = .6) + facet_wrap(~facet_by) + theme_light()
 ggplot(faceting) + geom_histogram(aes(x=value, fill=size), binwidth = 1, alpha = .6) + facet_wrap(~facet_by) + theme_light()
+#Core by Size
 ggplot(faceting) + geom_boxplot(aes(x=value, y=fct_reorder(size, value, .fun = median), fill=size), show.legend = FALSE) + facet_wrap(~facet_by) + theme_light()
 ggplot(faceting) + geom_boxplot(aes(x=value, y=fct_reorder(simple_alignment, value, .fun = median), fill=simple_alignment), show.legend = FALSE) + facet_wrap(~facet_by) + theme_light()
+#CR and Core
 ggplot(faceting) + geom_point(aes(x=CR, y=value), alpha=.1) + facet_wrap(~facet_by) + theme_light()
 ggplot(faceting) + geom_density_2d(aes(x=CR, y=value)) + facet_wrap(~facet_by) + theme_light()
-ggplot(faceting) + geom_point(aes(x=HP, y=value), alpha = .1, fill='red', col='red') + facet_wrap(~facet_by) + theme_light()
+#HP and Core
+ggplot(faceting) + geom_point(aes(x=HP, y=value), alpha = .1) + facet_wrap(~facet_by) + theme_light()
 ggplot(faceting) + geom_density_2d(aes(x=HP, y=value)) + facet_wrap(~facet_by) + theme_light()
+#AC and Core
+ggplot(faceting) + geom_point(aes(x=AC, y=value), alpha = .1) + facet_wrap(~facet_by) + theme_light()
+ggplot(faceting) + geom_density_2d(aes(x=AC, y=value)) + facet_wrap(~facet_by) + theme_light()
 
+#The six stats and the relationships to others
+faceting$stat <- rep(monsters$STR, each=6)
+ggplot(faceting) + geom_point(aes(x=value, y=stat), alpha=.1) + facet_wrap(~facet_by) + theme_light()
+faceting$stat <- rep(monsters$DEX, each=6)
+ggplot(faceting) + geom_point(aes(x=value, y=stat), alpha=.1) + facet_wrap(~facet_by) + theme_light()
+faceting$stat <- rep(monsters$CON, each=6)
+ggplot(faceting) + geom_point(aes(x=value, y=stat), alpha=.1) + facet_wrap(~facet_by) + theme_light()
+faceting$stat <- rep(monsters$INT, each=6)
+ggplot(faceting) + geom_point(aes(x=value, y=stat), alpha=.1) + facet_wrap(~facet_by) + theme_light()
+faceting$stat <- rep(monsters$WIS, each=6)
+ggplot(faceting) + geom_point(aes(x=value, y=stat), alpha=.1) + facet_wrap(~facet_by) + theme_light()
+faceting$stat <- rep(monsters$CHA, each=6)
+ggplot(faceting) + geom_point(aes(x=value, y=stat), alpha=.1) + facet_wrap(~facet_by) + theme_light()
 
-#Strength by Size
+#FAT GRID
+pairs(monsters[,7:12*2+1], pch = 19, col = rgb(0,0,0, alpha=.05), main = "Relationships Between Core Statistics")
+
+ggplot(faceting) + geom_point(aes(x=CR, y=value), alpha=.1) + facet_grid(facet_by~size) + theme_light()
+
+#Strength by Size#Strength by Sizefacet_by
 ggplot(monsters) + geom_boxplot(aes(x=STR, y=size, fill=fct_reorder(size, STR, .fun = median)), show.legend = FALSE) +theme_light()
 #AC by Size
 ggplot(monsters) + geom_boxplot(aes(x=AC, y=size, fill=size), show.legend = FALSE) +theme_light()
@@ -279,8 +302,8 @@ ggplot(monsters) +geom_bar(aes(y=fct_reorder(type, type, .fun = length), fill = 
 
 ggplot(monsters) +geom_bar(aes(y=fct_reorder(source, source, .fun = length))) + theme_light()
 ggplot(monsters) +geom_bar(aes(y=fct_reorder(alignment, alignment, .fun = length))) + theme_light()
-ggplot(monsters) +geom_bar(aes(y=`Nonmagical Immunity`)) + theme_light()
-ggplot(monsters) +geom_bar(aes(y=`Nonmagical Resistance`)) + theme_light()
+#ggplot(monsters) +geom_bar(aes(y=`Nonmagical Immunity`)) + theme_light()
+#ggplot(monsters) +geom_bar(aes(y=`Nonmagical Resistance`)) + theme_light()
 #AC over CR
 ggplot(monsters) + geom_point(aes(y=AC, x=CR), alpha=.1) + geom_density_2d(aes(y=AC, x=CR), alpha = .3) + theme_light()
 ggplot(monsters) + geom_point(aes(y=AC, x=CR), alpha=.1) + theme_light()
@@ -309,4 +332,3 @@ ggplot(monsters) + geom_boxplot(aes(x=CHA, y=fct_reorder(type, CHA, .fun = media
 #AC by type
 ggplot(monsters) + geom_boxplot(aes(x=AC, y=fct_reorder(type, AC, .fun = median), fill=type), show.legend = FALSE) +theme_light()
 ```
-
