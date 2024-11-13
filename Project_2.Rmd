@@ -12,7 +12,6 @@ output:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
-library(jsonlite)
 library(tidyverse)
 library(ggridges)
 library(rvest)
@@ -20,7 +19,19 @@ library(kableExtra)
 library(GGally)
 ```
 
-```{r better scrape}
+## Introduction
+
+#### Intro to D&D
+
+**Dungeons and Dragons** is a fantasy table-top role playing game. Players make choices to depict characters in a story, and the Game Master describes the world and the consequences of the players' actions. Part of describing that world is bringing to life the horrible **monsters** that inhabit it. These monsters are represented by about 30 statistics that make each monster unique and meaningfully different to fight. These statistics are intended to make combat with the monsters feel responsive to their strengths and weaknesses. This report will use data scraped from [this website](https://www.aidedd.org/dnd-filters/monsters.php), which has compiled by hand all of the officially released "statblocks" from the books published by Wizards of the Coast, the creators of Dungeons and Dragons.
+
+#### Why D&D?
+
+I chose this topic because I love this game and I wanted to highlight its **mechanical** approach to storytelling. It's very interesting how the designers choose to bring to life monsters as different as an Ancient Gold Dragon and and Awakened Tree using the same statistics.
+
+![A Death Dog from the source website](https://www.aidedd.org/dnd/images/death-dog.jpg)
+
+```{r scrumptious scrape}
 #Reading and splitting the table by lines
 front_page <- read_file('front_page.txt')
 split_front_page <- str_split(front_page, '\n')
@@ -47,31 +58,33 @@ id_dictionary <- tibble(name=names, id = url_names, )
 
 #Scraping monster data from every page
 #TAKES A LONG TIME TO RUN
-{
+
 #monster_data_new <- c()
 #for(i in 1:934){
 #page <- read_html(urls[i])
 #monster_data_new <- append(monster_data_new, html_text(html_elements(page,".source , .red , .type , h1")))
 #}
-}
+
 #Saving data for later
 #writeLines(monster_data_new, 'monster_data_new.txt')
 monster_data_new <- read_lines("monster_data_new.txt")
 
 #Grabbing both the real images and the theoretical links for a little trick later
 #TAKES A LONG TIME TO RUN
-{
+
 #images_real <- c()
 #for(i in 1:934){
 #page <- read_html(urls[i])
 #node <- html_elements(page,"img")
 #images_real <- append(images_real, html_attr(node, "src"))
 #}
-}
+
 #Saving the data for later
 #write_lines(images_real, "image_links.txt")
 images_real <- read_lines("image_links.txt")
+```
 
+```{r images}
 #Creating all theoretical links
 images_theory <- c()
 for(i in 1:934){
@@ -109,7 +122,19 @@ monster_array6 <- select(monster_array5, -excess1, -excess2)
 monster_array6 <- left_join(monster_array6, images_merged, by="name")
 ```
 
-```{r data cleaning}
+## Cleaning the Data
+
+The data scraped from the web was quite messy. There are about 100 lines of code dedicated to cleaning it, so this report will summarize the most notable challenges and steps taken to overcome them.
+
+Most notably, one variable, "desc" contained information of the form: "var1 value1 var2 value2 var3 value3...". The trouble I faced with extracting this data was that not every variable of interest was in every entry. My solution was to loop through the key variables I wanted to extract, separating the desc variable into two columns, the first labeled after the key variable, and the second lebeled "desc", and containing all the remaining information. At the end of this loop, the data are not in the correct columns, but are instead shifted an indefinite number of columns to the right. Luckily, standing between the values and their correct positions are NA values, which can be "surfed" by checking each column right to left, to see if the column to its left is an NA value, and if so, shifting the value one column to the left. This process shifts the values to their correct columns. A similar method was used to separate the different types of speeds, such as flying, swimming, and climbing.
+
+Another notable issue was the parsing of the Challenge Rating, or CR of the monsters. Parsing the fractions was returning inaccurate values, so I manually replaced the three possible fractions, 1/2, 1/4, and 1/8 with their decimal equivalents, and then parsed every other number. Many other variables were separated with stringr and then parsed as numbers.
+
+The last significant challenge was creating Boolean columns to select monsters by their damage resistances, vulnerabilities, and immunities, as well as by the languages they speak, the senses they use, and the conditions they are immune to.
+
+Besides these large challenges, many monsters have small caveats to the typical rules, which act somewhat like a baked potato in a car's gas tank, breaking my original for loop, as well as some of the stringr patterns. Most of these were easy to locate, however, and the next largest issues were solvable with a line or two of code.
+
+```{r classy cleaning}
 #Loop that takes a character vector of stats, and separates the desc variable into many variables of those stats.
 #I've never killed a man, but God help anyone who touches this code. This took over 8 hours. Don't fuck it up.
 
@@ -120,7 +145,7 @@ n <- length(stats)
 for(i in 2:n){
   monster_array_it <- separate(monster_array_it, desc, into=c(stats[i-1],'desc'), sep=stats[i], fill='left')
 }
-#pushing everything that needs to be pushed back to the left
+#pushing everything that needs to be pushed back to the left by "surfing the NAs"
 nn <- which(colnames(monster_array_it)=="desc")
 n <- nn-length(stats)+1
 for(i in nn:n){
@@ -191,8 +216,41 @@ monster_array_it$simple_alignment[is.na(monster_array_it$simple_alignment)] <- "
 #Capitalizing
 monster_array_it$type <- str_to_title(monster_array_it$type)
 
-#Classifying nonmagical res/imm as a new variable and turning res/imm into character vectors
+#Splitting res/imm into nonmagical and typical
 monster_array_it <- separate(monster_array_it, "Damage Resistances ", into=c("Damage Resistances", "Nonmagical Resistances"), sep=";")
+slide <- str_detect(monster_array_it$`Damage Resistances`, "nonmagical")
+slide[is.na(slide)] <- FALSE
+monster_array_it$`Nonmagical Resistances`[slide] <- monster_array_it$`Damage Resistances`[slide]
+monster_array_it$`Damage Resistances`[slide] <- NA
+monster_array_it <- separate(monster_array_it, "Damage Immunities ", into=c("Damage Immunities", "Nonmagical Immunities"), sep=";")
+slide <- str_detect(monster_array_it$`Damage Immunities`, "nonmagical")
+slide[is.na(slide)] <- FALSE
+monster_array_it$`Nonmagical Immunities`[slide] <- monster_array_it$`Damage Immunities`[slide]
+monster_array_it$`Damage Immunities`[slide] <- NA
+
+#Creating boolean columns for specific resistances
+damages <- c("acid","bludgeoning","cold","fire","force","lightning","necrotic","piercing","poison","psychic","radiant","slashing","thunder")
+for (dmg in damages) {
+  monster_array_it <- cbind(monster_array_it, str_detect(monster_array_it$`Damage Resistances`, pattern=dmg))
+  colnames(monster_array_it)[length(colnames(monster_array_it))] <- paste0(dmg, "_res")
+  monster_array_it[is.na(monster_array_it[length(colnames(monster_array_it))]),length(colnames(monster_array_it))] <- FALSE
+}
+
+#Creating boolean columns for specific immunities
+for (dmg in damages) {
+  monster_array_it <- cbind(monster_array_it, str_detect(monster_array_it$`Damage Immunities`, pattern=dmg))
+  colnames(monster_array_it)[length(colnames(monster_array_it))] <- paste0(dmg, "_imm")
+  monster_array_it[is.na(monster_array_it[length(colnames(monster_array_it))]),length(colnames(monster_array_it))] <- FALSE
+}
+
+#Creating boolean columns for specific languages
+languages <- c("Common", "Dwarvish","Elvish","Giant","Gnomish","Goblin","Halfling","Orc","Abyssal","Celestial","Draconic","Deep Speech","Infernal","Primordial","Aquan","Auran","Ignan","Terran","Sylvan","Undercommon")
+for (lng in languages) {
+  monster_array_it <- cbind(monster_array_it, str_detect(monster_array_it$`Languages `, pattern=lng))
+  colnames(monster_array_it)[length(colnames(monster_array_it))] <- lng
+  monster_array_it[is.na(monster_array_it[length(colnames(monster_array_it))]),length(colnames(monster_array_it))] <- FALSE
+}
+
 #monster_array_it$`Nonmagical Resistance` <- str_detect(monster_array_it$`Damage Resistances `, "nonmagical")
 #monster_array_it$`Damage Resistances ` <- str_split(monster_array_it$`Damage Resistances `, ", |; ")
 #monster_array_it$`Nonmagical Immunity` <- str_detect(monster_array_it$`Damage Immunities `, "nonmagical")
@@ -200,56 +258,36 @@ monster_array_it <- separate(monster_array_it, "Damage Resistances ", into=c("Da
 #monster_array_it$`Nonmagical Immunity`[is.na(monster_array_it$`Nonmagical Immunity`)] <- FALSE
 #monster_array_it$`Nonmagical Resistance`[is.na(monster_array_it$`Nonmagical Resistance`)] <- FALSE
 
-#Cooking
-combined <- c()
-for (entry in unique(monster_array_it$`Damage Immunities `)) {
-  combined <- append(combined, entry)
-}
-unique(combined)
-
-#polishing the final dataframe
-monsters <- monster_array_it
+#storing the final dataframe
+monsters <- unique(monster_array_it)
 
 #Sick ass stats and picture
-kbl(monsters[108,]) %>%
-  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = F)
-knitr::include_graphics(monsters$image[108])
+#kbl(monsters) %>%
+  #kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = F)
+#knitr::include_graphics(monsters$image[108])
 
 #More sick ass stats and another picture
-kbl(monsters[117,]) %>%
-  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = F)
-knitr::include_graphics(monsters$image[117])
+#kbl(monsters[117,]) %>%
+  #kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = F)
+#knitr::include_graphics(monsters$image[117])
 
-knitr::include_graphics(monsters$image[160])
+#knitr::include_graphics(monsters$image[160])
 
-pictured <- monsters[!is.na(monsters$image),]
-pictured[pictured$CR < 1,]
+#pictured <- monsters[!is.na(monsters$image),]
+#pictured[pictured$CR < 1,]
 
 #knitr::include_graphics(pictured$image[pictured$CR < 1,])
 ```
 
-```{r data}
-#monsters_json <- fromJSON('5e-Monsters.json', flatten = TRUE)
-#monsters <- as_tibble(monsters_json)
-
-#Testing the tidy unnest function
-#UN_armor_class <- unnest(monsters, cols=armor_class, names_repair = 'unique')
-#UN_profs <- unnest(monsters, cols=proficiencies, names_repair = 'unique')
-#UN_condition_immunities <- unnest(monsters, cols=condition_immunities, names_repair = 'minimal')
-
-#anti_join(UN_condition_immunities, monsters, by = 'name')
-
-#Subsetting by wearing armor
-#armored <- unnesttest[unnesttest$armor != 'NULL',]
-```
-
-```{r graphs}
+```{r gratifying graphs}
 #UNIVARIATES
 ggplot(monsters) + geom_histogram(aes(CR), binwidth = 1, col = 'red', fill='red', alpha = .6) + theme_light()
 ggplot(monsters) + geom_histogram(aes(AC), binwidth = 1, col = 'red', fill='red', alpha = .6) + theme_light()
+ggplot(monsters) + geom_density(aes(INT), binwidth = 1, col = 'red', fill='red', alpha = .6) + theme_light() + facet_wrap(~fire_imm)
+ggplot(monsters) + geom_boxplot(aes(x=INT, y=fire_imm, fill=fire_imm), alpha = .6) + theme_light()
 
 #Comparing core stats by size
-ggplot(monsters) + geom_density(aes(DEX), col = 'red', fill='red', alpha = .3) + geom_density(aes(STR, y=-..density..), col = 'blue', fill='blue', alpha = .3) + theme_light() + facet_wrap(~size)
+ggplot(monsters) + geom_density(aes(DEX), col = 'red', fill='red', alpha = .3) + geom_density(aes(STR, y=-..density..), col = 'blue', fill='blue', alpha = .3) + theme_light() + facet_wrap(~fire_imm)
 
 
 #Faceting relationships by core stat
@@ -257,9 +295,12 @@ facet_by <- stats
 faceting <- pivot_longer(monsters, cols = facet_by, names_to = "facet_by")
 ggplot(faceting) + geom_histogram(aes(x=value), fill='red', binwidth = 1, alpha = .6) + facet_wrap(~facet_by) + theme_light()
 ggplot(faceting) + geom_histogram(aes(x=value, fill=size), binwidth = 1, alpha = .6) + facet_wrap(~facet_by) + theme_light()
+
 #Core by Size
 ggplot(faceting) + geom_boxplot(aes(x=value, y=fct_reorder(size, value, .fun = median), fill=size), show.legend = FALSE) + facet_wrap(~facet_by) + theme_light()
 ggplot(faceting) + geom_boxplot(aes(x=value, y=fct_reorder(simple_alignment, value, .fun = median), fill=simple_alignment), show.legend = FALSE) + facet_wrap(~facet_by) + theme_light()
+ggplot(faceting) + geom_boxplot(aes(x=value, y=Abyssal, fill=Abyssal), show.legend = FALSE) + facet_wrap(~facet_by) + theme_light()
+
 #CR and Core
 ggplot(faceting) + geom_point(aes(x=CR, y=value), alpha=.1) + facet_wrap(~facet_by) + theme_light()
 ggplot(faceting) + geom_density_2d(aes(x=CR, y=value)) + facet_wrap(~facet_by) + theme_light()
@@ -289,7 +330,7 @@ pairs(monsters[,7:12*2+1], pch = 19, col = rgb(0,0,0, alpha=.05), main = "Relati
 
 ggplot(faceting) + geom_point(aes(x=CR, y=value), alpha=.1) + facet_grid(facet_by~size) + theme_light()
 
-#Strength by Size#Strength by Sizefacet_by
+#Strength by Size
 ggplot(monsters) + geom_boxplot(aes(x=STR, y=size, fill=fct_reorder(size, STR, .fun = median)), show.legend = FALSE) +theme_light()
 #AC by Size
 ggplot(monsters) + geom_boxplot(aes(x=AC, y=size, fill=size), show.legend = FALSE) +theme_light()
