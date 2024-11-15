@@ -125,7 +125,7 @@ monster_array6 <- left_join(monster_array6, images_merged, by="name")
 
 ## Cleaning the Data
 
-The data scraped from the web was quite messy, and cleaning it was the hardest part of the project. Not all of the problems are notable enough to mention here, but these were the most significant challenges.
+The data scraped from the 900+ web pages was quite messy, and cleaning it was the hardest part of the project. Not all of the problems are notable enough to mention here, but these were the most significant challenges.
 
 #### Iterative Seperation and "NA Surfing"
 
@@ -279,7 +279,7 @@ pictured <- monsters[!is.na(monsters$image),]
 Of the over one hundred variables in the cleaned dataset, the rest of the report will use only `r length(monsters)`. These variables are:
 
 | Variable    | Type    | Description                                             |
-|------------------|------------------|-------------------------------------|
+|------------------|------------------|------------------------------------|
 | name        | String  | The name of the monster                                 |
 | size        | String  | The categorical size of the monster                     |
 | type        | String  | The type of creature the monster is                     |
@@ -370,19 +370,19 @@ subset <- monsters[monsters$type == "Celestial"|monsters$type == "Dragon"|monste
 ggplot(subset) + geom_boxplot(aes(x=CHA, y=fct_reorder(type, CHA, .fun = median)), fill=cols[1:5],  show.legend = FALSE) +theme_light() + labs(title = "Charisma by Creature Type", y="Creature Type")
 ```
 
-One of the strongest predictors of a monster's Charisma score is its creature type, a few of which are visualized above. There are `r length(unique(monsters$type))` creature types, but only five are presented above. Celestials, the D&D equivalent of angels, have a median Charisma score of 20, the maximum score for a player character, and Plants have a median Charisma score of 5.
+One of the strongest predictors of a monster's Charisma score is its **creature type**, a few of which are visualized above. There are `r length(unique(monsters$type))` creature types, but only five are presented above. **Celestials**, the D&D equivalent of angels, have a median Charisma score of 20, the maximum score for a player character, and **Plants** have a median Charisma score of 5.
 
 ```{r}
 ggplot(monsters) + geom_point(aes(x=CR, y=WIS), col=cols[6], alpha=.2) + theme_light() + labs(title="Wisdom Scaling With Challenge Rating",x="Challenge Rating")
 ```
 
-The strongest predictor of Wisdom score is a monster's Challenge Rating, or CR, which represents how difficult it is to defeat in combat. Since this number is an indicator of the monster's fighting capabilities, we can consider this graph an indication of how the Wisdom score scales as the monsters become more powerful. We can create similar graphs for every statistic.
+The strongest predictor of Wisdom score is a monster's **Challenge Rating**, or CR, which represents how difficult it is to defeat in combat. Since this number is an indicator of the monster's fighting capabilities, we can consider this graph an indication of how the Wisdom score **scales** as the monsters become more powerful. We can create similar graphs for every core statistic.
 
 ```{r}
 ggplot(faceting) + geom_point(aes(x=CR, y=value), col=cols[6], alpha=.1) + facet_wrap(~facet_by) + theme_light() + labs(title="Core Statistic Scaling With Challenge Rating", y="Value",x="Challenge Rating")
 ```
 
-The darkness of a point in these graphs indicates the number of entries at that point, with the darkest points representing 10 or more entries. We can see that most of the statistics follow a trend similar to the Wisdom score, scaling up with Challenge Rating. Dexterity, however, appears to be the exception, barely scaling at all as CR increases. Intelligence is also quite a weak positive correlation. Apparently, Intelligence and especially Dexterity are not the most key factors in determining a monster's difficulty in battle.
+The darkness of a point in these graphs indicates the number of entries at that point, with the darkest points representing 10 or more entries. We can see that most of the statistics follow a trend similar to the Wisdom score, **scaling up with Challenge Rating**. Dexterity, however, appears to be the exception, barely scaling at all as CR increases. Intelligence is also quite a weak positive correlation. Apparently, Intelligence and especially Dexterity are **not the most key factors** in determining a monster's difficulty in battle.
 
 ### Core Stat Correlations
 
@@ -390,21 +390,23 @@ The darkness of a point in these graphs indicates the number of entries at that 
 ggplot(monsters) + geom_point(aes(x=DEX, y=STR), col=cols[6], alpha=.1, size = 3) + theme_light() + labs(title="Relationship Between Dexterity and Strength")
 ```
 
-To conclude this report, we'll investigate the correlations between the core stats. Above is the plot of Strength vs Dexterity, with a correlation coefficient of `r round(cor(monsters$STR,monsters$DEX),2)`, indicating a weak negative correlation if anything at all. It appears that monsters may be any combination of dexterous and mighty, but in general, strength in one attribute may predict a weakness in the other.
+To conclude this report, we'll investigate the correlations between the core stats. Above is the plot of Strength vs Dexterity, with a correlation coefficient of `r round(cor(monsters$STR,monsters$DEX),2)`, indicating a **weak negative correlation** if anything at all. It appears that monsters may be any combination of dexterous and mighty, but in general, strength in one attribute may predict a weakness in the other.
 
 ```{r}
 ggplot(monsters) + geom_point(aes(x=CON, y=STR), col=cols[6], alpha=.1, size = 3) + theme_light() + labs(title="Relationship Between Constitution and Strength")
 ```
 
-Conversely, observing the relationship between Constitution and Strength yields a correlation coefficient of `r round(cor(monsters$STR,monsters$CON),2)`, indicating a strong positive correlation. A monster that is mighty will likely be tough to bring down. Rather than examine each of these graphs individually, we can create a grid of them, keeping the axes constant along vertical and horizontal lines.
+Conversely, observing the relationship between Constitution and Strength yields a correlation coefficient of `r round(cor(monsters$STR,monsters$CON),2)`, indicating a **strong positive correlation**. A monster that is mighty will likely be tough to bring down. Rather than examine each of these graphs individually, we can **create a grid of them**, keeping the axes constant along vertical and horizontal lines.
 
 ```{r}
 pairs(monsters[,4:9], pch = 19, col = rgb(.11,.42,.13, alpha=.03), main = "Relationships Between Core Statistics") #GOOD
 ```
 
-Though this graph may seem overwhelming at first, it may help to recognize the last two graphs we looked at are the first and second graphs in this grid. Since they share the Strength score as their y-axis, they are in the first row, where every scatterplot's y-axis is Strength. Likewise the y-axes are held constant in the other rows, and the x-axes are held constant in the columns. A helpful intuition for this grid is that scatter plots that picture a dark line imply a strong correlation, such as the graph at the intersection of Intelligence and Charisma, and a pale scattering of points indicates weak or no correlation, such as the intersection of Intelligence and Strength. Feel free to study the grid for a second or two and speculate as to why certain attributes may be more or less correlated.
+Though this graph may seem overwhelming at first, it may help to **recognize the last two graphs** we looked in the first and second positions in this grid. Since they share the Strength score as their y-axis, they are in the first row, where every scatterplot's y-axis is Strength. Likewise the y-axes are held constant in the other rows, and the x-axes are held constant in the columns. A helpful intuition for this grid is that scatter plots that picture a **dark line imply a strong correlation**, such as the graph at the intersection of Intelligence and Charisma, and a **pale scattering of points indicates weak or no correlation**, such as the intersection of Intelligence and Strength. Feel free to study the grid for a second or two and speculate as to why certain attributes may be more or less correlated.
 
 ## Conclusion
+
+The most profound takeaways from these multivariate and univariate analyses are that the mental stats (INT, WIS, CHA) are largely correlated, and most core stats can be predicted by some other attribute of the monster, such as size, creature type, or damage immunities. These are the results I was expecting, and it's cool to see them visualized like this.
 
 Thanks for reading about my database and my hobby! I hope you found the mechanical storytelling of the game interesting, but most importantly, I hope you enjoyed reading.
 
@@ -476,5 +478,3 @@ ggplot(monsters) + geom_density_2d_filled(aes(y=AC, x=CR), show.legend = FALSE) 
 ggplot(monsters) + geom_col(aes(x=STR, y=1, fill=fct_reorder(type, STR, .fun = median)), alpha = .6) + theme_light()
 
 ```
-
-
