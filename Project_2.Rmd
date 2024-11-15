@@ -55,6 +55,10 @@ urls[i] <- str_c('https://www.aidedd.org/dnd/monstres.php?vo=', url_names[i])
 }
 id_dictionary <- tibble(name=names, id = url_names, )
 
+#Importing monster data from pre-run scrape
+monster_data_new <- read_lines("monster_data_new.txt")
+images_real <- read_lines("image_links.txt")
+
 #Scraping monster data from every page
 #TAKES A LONG TIME TO RUN
 
@@ -66,7 +70,6 @@ id_dictionary <- tibble(name=names, id = url_names, )
 
 #Saving data for later
 #writeLines(monster_data_new, 'monster_data_new.txt')
-monster_data_new <- read_lines("monster_data_new.txt")
 
 #Grabbing both the real images and the theoretical links for a little trick later
 #TAKES A LONG TIME TO RUN
@@ -80,7 +83,6 @@ monster_data_new <- read_lines("monster_data_new.txt")
 
 #Saving the data for later
 #write_lines(images_real, "image_links.txt")
-images_real <- read_lines("image_links.txt")
 ```
 
 ```{r images}
@@ -141,6 +143,7 @@ Besides these large challenges, many monsters have small caveats to the typical 
 
 ```{r classy cleaning}
 #Loop that takes a character vector of stats, and separates the desc variable into many variables of those stats.
+#I've never killed a man, but God help anyone who touches this code.
 
 #iteratively splitting descriptive text by notable stats, and pushing everything important to the right
 monster_array_it <- monster_array6
