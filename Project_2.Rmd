@@ -410,6 +410,18 @@ The most profound takeaways from these multivariate and univariate analyses are 
 
 Thanks for reading about my database and my hobby! I hope you found the mechanical storytelling of the game interesting, but most importantly, I hope you enjoyed reading.
 
+## References
+
+[https://www.aidedd.org/dnd-filters/monsters.php](https://www.aidedd.org/dnd-filters/monsters.php)
+
+[R Documentation](https://www.rdocumentation.org)
+
+[ggplot Documentation](https://ggplot2.tidyverse.org/reference/index.html0)
+
+## Reproducibility Resources
+
+There is a [github repository](https://github.com/Landon-Hodges-UTexas/Project-2) for this project containing the Markdown file of this report, and the pre-scraped data, as well as instructions on how to edit the code in this report to perform the web scrape.
+
 ![](https://www.aidedd.org/dnd/images/white-dragon.jpg)
 
 ## Fun and Games
