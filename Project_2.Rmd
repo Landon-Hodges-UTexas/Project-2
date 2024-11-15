@@ -1,17 +1,16 @@
 ---
-title: "Project 2"
+title: "The Monster Database"
 author: "Landon Hodges"
 date: "2024-10-26"
 output:
   html_document:
-      #code_folding: hide
       toc : TRUE
       toc_float: TRUE
       theme: journal
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
+```{r setup, echo=FALSE, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE)
 library(tidyverse)
 library(ggridges)
 library(rvest)
@@ -27,7 +26,7 @@ library(GGally)
 
 #### Why D&D?
 
-I chose this topic because I love this game and I wanted to highlight its **mechanical** approach to storytelling. It's very interesting how the designers choose to bring to life monsters as different as an Ancient Gold Dragon and and Awakened Tree using the same statistics.
+I chose to create a database of the D&D monsters because I love this game and I wanted to highlight its **mechanical** approach to storytelling. It's interesting how the designers choose to bring to life monsters as different as a Gold Dragon and an Awakened Tree using the same statistics.
 
 ![A Death Dog from the source website](https://www.aidedd.org/dnd/images/death-dog.jpg)
 
@@ -124,19 +123,24 @@ monster_array6 <- left_join(monster_array6, images_merged, by="name")
 
 ## Cleaning the Data
 
-The data scraped from the web was quite messy. There are about 100 lines of code dedicated to cleaning it, so this report will summarize the most notable challenges and steps taken to overcome them.
+The data scraped from the web was quite messy, and cleaning it was the hardest part of the project. Not all of the problems are notable enough to mention here, but these were the most significant challenges.
 
-Most notably, one variable, "desc" contained information of the form: "var1 value1 var2 value2 var3 value3...". The trouble I faced with extracting this data was that not every variable of interest was in every entry. My solution was to loop through the key variables I wanted to extract, separating the desc variable into two columns, the first labeled after the key variable, and the second lebeled "desc", and containing all the remaining information. At the end of this loop, the data are not in the correct columns, but are instead shifted an indefinite number of columns to the right. Luckily, standing between the values and their correct positions are NA values, which can be "surfed" by checking each column right to left, to see if the column to its left is an NA value, and if so, shifting the value one column to the left. This process shifts the values to their correct columns. A similar method was used to separate the different types of speeds, such as flying, swimming, and climbing.
+#### Iterative Seperation and "NA Surfing"
+
+Most notably, one variable, "desc" contained information of the form: "var1 value1 var2 value2 var3 value3...". The trouble I faced with extracting this data was that not every variable of interest was in every entry. My solution was to loop through the key variables I wanted to extract, separating the desc variable into two columns, the first labeled after the key variable, and the second lebeled "desc", and containing all the remaining information. However, at the end of this loop, the data are not in the correct columns, but are instead shifted an indefinite number of columns to the right. Luckily, standing between the values and their correct positions are NA values, which can be "surfed" by checking each column right to left, to see if the column to its left is an NA value, and if so, shifting the value one column to the left. This process shifts the values to their correct columns. A similar method was used to separate the different types of speeds, such as flying, swimming, and climbing.
+
+#### Challenge Rating Fractions
 
 Another notable issue was the parsing of the Challenge Rating, or CR of the monsters. Parsing the fractions was returning inaccurate values, so I manually replaced the three possible fractions, 1/2, 1/4, and 1/8 with their decimal equivalents, and then parsed every other number. Many other variables were separated with stringr and then parsed as numbers.
 
-The last significant challenge was creating Boolean columns to select monsters by their damage resistances, vulnerabilities, and immunities, as well as by the languages they speak, the senses they use, and the conditions they are immune to.
+#### Languages, Resistances, Immunities, and the Like
 
-Besides these large challenges, many monsters have small caveats to the typical rules, which act somewhat like a baked potato in a car's gas tank, breaking my original for loop, as well as some of the stringr patterns. Most of these were easy to locate, however, and the next largest issues were solvable with a line or two of code.
+The last significant challenge was creating columns to select monsters by their damage resistances, vulnerabilities, and immunities, as well as by the languages they speak, the senses they use, and the conditions they are immune to.
+
+Besides these large challenges, many monsters have small caveats to the typical rules, which act somewhat like a baked potato in a car's gas tank, breaking my original loop, as well as some of the patterns that I used to extract important data. Most of these were easy to locate, however, and the next largest issues were solvable with a line or two of code.
 
 ```{r classy cleaning}
 #Loop that takes a character vector of stats, and separates the desc variable into many variables of those stats.
-#I've never killed a man, but God help anyone who touches this code. This took over 8 hours. Don't fuck it up.
 
 #iteratively splitting descriptive text by notable stats, and pushing everything important to the right
 monster_array_it <- monster_array6
@@ -207,7 +211,7 @@ monster_array_it$HP <- parse_number(monster_array_it$HP)
 monster_array_it$alignment <- str_remove(monster_array_it$alignment, "typically ")
 monster_array_it$alignment <- str_to_title(monster_array_it$alignment)
 monster_array_it$simple_alignment <- NA
-alignments <- c("Evil", "Good", "Neutral", "Any")
+alignments <- c("Evil", "Good", " Neutral", "Any")
 for (str in alignments) {
   monster_array_it$simple_alignment[str_detect(monster_array_it$alignment, str)] <- str
 }
@@ -243,6 +247,13 @@ for (dmg in damages) {
   monster_array_it[is.na(monster_array_it[length(colnames(monster_array_it))]),length(colnames(monster_array_it))] <- FALSE
 }
 
+#Creating boolean columns for specific immunities
+for (dmg in damages) {
+  monster_array_it <- cbind(monster_array_it, str_detect(monster_array_it$`Damage Vulnerabilities `, pattern=dmg))
+  colnames(monster_array_it)[length(colnames(monster_array_it))] <- paste0(dmg, "_vul")
+  monster_array_it[is.na(monster_array_it[length(colnames(monster_array_it))]),length(colnames(monster_array_it))] <- FALSE
+}
+
 #Creating boolean columns for specific languages
 languages <- c("Common", "Dwarvish","Elvish","Giant","Gnomish","Goblin","Halfling","Orc","Abyssal","Celestial","Draconic","Deep Speech","Infernal","Primordial","Aquan","Auran","Ignan","Terran","Sylvan","Undercommon")
 for (lng in languages) {
@@ -251,98 +262,205 @@ for (lng in languages) {
   monster_array_it[is.na(monster_array_it[length(colnames(monster_array_it))]),length(colnames(monster_array_it))] <- FALSE
 }
 
-#monster_array_it$`Nonmagical Resistance` <- str_detect(monster_array_it$`Damage Resistances `, "nonmagical")
-#monster_array_it$`Damage Resistances ` <- str_split(monster_array_it$`Damage Resistances `, ", |; ")
-#monster_array_it$`Nonmagical Immunity` <- str_detect(monster_array_it$`Damage Immunities `, "nonmagical")
-#monster_array_it$`Damage Immunities ` <- str_split(monster_array_it$`Damage Immunities `, ", |; ")
-#monster_array_it$`Nonmagical Immunity`[is.na(monster_array_it$`Nonmagical Immunity`)] <- FALSE
-#monster_array_it$`Nonmagical Resistance`[is.na(monster_array_it$`Nonmagical Resistance`)] <- FALSE
-
 #storing the final dataframe
 monsters <- unique(monster_array_it)
+monsters <- select(monsters, c("name","size","type","STR","DEX","CON","INT","WIS","CHA","CR","image","psychic_imm","Elvish"))
 
-#Sick ass stats and picture
-#kbl(monsters) %>%
-  #kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = F)
-#knitr::include_graphics(monsters$image[108])
-
-#More sick ass stats and another picture
-#kbl(monsters[117,]) %>%
-  #kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = F)
-#knitr::include_graphics(monsters$image[117])
-
-#knitr::include_graphics(monsters$image[160])
-
-#pictured <- monsters[!is.na(monsters$image),]
-#pictured[pictured$CR < 1,]
-
-#knitr::include_graphics(pictured$image[pictured$CR < 1,])
+pictured <- monsters[!is.na(monsters$image),]
 ```
 
-```{r gratifying graphs}
+![](https://www.aidedd.org/dnd/images/gynosphinx.jpg){width="54%"} ![](https://www.aidedd.org/dnd/images/imp.jpg){width="45%"}
+
+## Variable Descriptions
+
+Of the over one hundred variables in the cleaned dataset, the rest of the report will use only `r length(monsters)`. These variables are:
+
+| Variable    | Type    | Description                                             |
+|------------------|------------------|-------------------------------------|
+| name        | String  | The name of the monster                                 |
+| size        | String  | The categorical size of the monster                     |
+| type        | String  | The type of creature the monster is                     |
+| CR          | Number  | The monster's Challenge Rating, or difficulty in battle |
+| STR         | Integer | The monster's strength score                            |
+| DEX         | Integer | The monster's dexterity score                           |
+| CON         | Integer | The monster's constitution score                        |
+| INT         | Integer | The monster's intelligence score                        |
+| WIS         | Integer | The monster's wisdom score                              |
+| CHA         | Integer | The monster's charisma score                            |
+| image       | String  | The link to an image of the monster                     |
+| psychic_imm | Logical | Whether or not the monster is immune to psychic damage  |
+| Elvish      | Logical | Whether or not the monster speaks Elvish                |
+
+## Graphs!
+
+### Univariates
+
+The outcome variables we will be investigating will be the six core statistics of each monster, which range from 0 to 30. These stats will be represented by their in-game abbreviations: STR for **Strength**, DEX for **Dexterity**, CON for **Constitution**, INT for **Intelligence**, WIS for **Wisdom**, and CHA for **Charisma**. We will investigate their connections to a monster's size, language proficiency, and its creature type. And at the end, we'll see how the stats are correlated with each other! Let's delve.
+
+```{r favored finalists}
+
+cols = c("#762a83","#af8dc3","#e7d4e8","#d9f0d3","#7fbf7b","#1b7837")
+
+#Creating pivoting the dataset to facet by Core Stat
+facet_by <- stats
+faceting <- pivot_longer(monsters, cols = facet_by, names_to = "facet_by")
+
+ggplot(faceting) + geom_histogram(aes(x=value), fill=cols[5], binwidth = 1) + facet_wrap(~facet_by) + theme_light() + labs(title="Distribution of Core Statistics", x="Value", y="Frequency")
+```
+
+We begin with a look at the univariate distributions of each of the core stats. Get used to this six-graph format for the variables, as we'll see it come up again later. The statistics for these distributions are in the table below, but a key feature of these distributions is the **soft minimum** for some of the stats at a value of 10, which is considered the average. Apparently, most monsters that adventurers encounter are considered to be of above average Constitution, Dexterity, and Wisdom. (Wisdom, it should be noted, refers more to cleverness or awareness than book-smarts.) However, this minimum does not hold for Intelligence, Charisma, and to some extent, Strength. This implies that a good portion of monsters are of below average Intelligence, representing book-smarts, and Charisma, representing force of will. By contrast, this paints the players as **knowledgeable and purposeful**, defeating more powerful foes by **clever strategy and sheer force of will**.
+
+```{r}
+means <- c()
+sds <- c()
+for (i in 4:9) {
+  means[i-3] <- mean(monsters[,i])
+  sds[i-3] <- sd(monsters[,i])
+}
+fun_stats <- tibble(Statistic = stats, Mean = round(means,2), `Standard Deviation` = round(sds,2))
+
+kbl(fun_stats) %>% kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = F)
+```
+
+![](https://www.aidedd.org/dnd/images/green-hag.jpg){width="49%"} ![](https://www.aidedd.org/dnd/images/grick.jpg){width="49%"}
+
+### Multivariates
+
+Now we'll see a few of the many interesting connections in this data set.
+
+The first of which is the correlation between a monster's size and its Strength score.
+
+```{r}
+ggplot(monsters) + geom_boxplot(aes(y=STR, x=fct_reorder(size, STR, .fun = median)), fill=cols, show.legend = FALSE) +theme_light() + labs(title="Strength by Size", x="Size Category",y="STR")
+size_str <- group_by(monsters, size)
+size_str <- summarise(size_str, Median= median(STR))
+```
+
+Clearly, the categorical size of a monster is one of the **biggest predictors** of its Strength score. Gargantuan monsters have a median Strength of `r size_str$Median[1]`, while Tiny mosters have a measly median of `r size_str$Median[6]`. With scores ranging 0 to 30, that's about as drastic a difference as we can get.
+
+```{r}
+ggplot(monsters) + geom_boxplot(aes(y=DEX, x=fct_reorder(size, STR, .fun = median)), fill=cols, show.legend = FALSE) +theme_light() + labs(title="Dexterity by Size", x="Size Category",y="DEX")
+size_dex <- group_by(monsters, size)
+size_dex <- summarise(size_dex, Median= median(DEX))
+```
+
+Conversely, drawing the same graph again, but this time observing the Dexterity scores, we actually see a **decrease** in median dexterity as the monsters increase in catergorical size. This makes sense in the context of the "**big, slow bad guy**" trope, where the heroes quickly flit around the groggy enemy, dodging its lethal attacks. In this case, Gargantuan monsters have a median Dexterity of `r size_dex$Median[1]`, while Tiny monsters have a slightly higher median of `r size_dex$Median[6]`. Though that's a small difference in the bookends, the **consistent decrease in median** as we move up the size categories implies the same correlation as well.
+
+```{r}
+ggplot(monsters) + geom_boxplot(aes(x=INT, y=Elvish), fill=cols[c(2,5)], show.legend = FALSE) + theme_light() + labs(title="Intelligence of Elvish-Speakers and Non-Elvish-Speakers", y="Speaks Elvish")
+elvish <- group_by(monsters, Elvish)
+elvish <- summarise(elvish, Median= median(INT))
+```
+
+The graph above illustrates the difference in Intelligence scores between monsters who speak or understand Elvish, and those who don't. This difference holds true for almost any language, but it's **most pronounced in Elvish**. The median intelligence for Elvish speakers is `r elvish$Median[2]`, while the median for those who can't understand or speak Elvish is `r elvish$Median[1]`.
+
+As a fun fact, at my D&D table, Elvish is Greek when written, and French when spoken. The idea behind this decision is that human minds can't comprehend how the language is read, so the words and spoken tongue should seem wildly disconnected to the players.
+
+```{r}
+ggplot(monsters) + geom_density_ridges(aes(x=INT, y=psychic_imm, fill = psychic_imm), alpha=.6, show.legend = FALSE) + theme_light() + labs(title="Intelligence of Psychic-Immune Monsters",y="Psychic Immunity") + scale_fill_manual(values = cols[c(2,5)])
+```
+
+Sorting the monsters by whether or not they have an immunity to psychic damage, and then comparing their Intelligence scores, we see a **bimodal** distribution emerge in the psychic-immune group. My best hypothesis as to the cause of this effect is that there are **two types of enemies** who may be immune to psychic damage: **intellectual fortresses**, who have developed their minds to be immune to mental manipulation, and the **empty minds**, those with nothing up there to damage. Imagine the difference between trying to read the mind of Gandalf vs Patrick Star.
+
+```{r}
+subset <- monsters[monsters$type == "Celestial"|monsters$type == "Dragon"|monsters$type == "Monstrosity"|monsters$type == "Humanoid"|monsters$type == "Plant",]
+ggplot(subset) + geom_boxplot(aes(x=CHA, y=fct_reorder(type, CHA, .fun = median)), fill=cols[1:5],  show.legend = FALSE) +theme_light() + labs(title = "Charisma by Creature Type", y="Creature Type")
+```
+
+One of the strongest predictors of a monster's Charisma score is its creature type, a few of which are visualized above. There are `r length(unique(monsters$type))` creature types, but only five are presented above. Celestials, the D&D equivalent of angels, have a median Charisma score of 20, the maximum score for a player character, and Plants have a median Charisma score of 5.
+
+```{r}
+ggplot(monsters) + geom_point(aes(x=CR, y=WIS), col=cols[6], alpha=.2) + theme_light() + labs(title="Wisdom Scaling With Challenge Rating",x="Challenge Rating")
+```
+
+The strongest predictor of Wisdom score is a monster's Challenge Rating, or CR, which represents how difficult it is to defeat in combat. Since this number is an indicator of the monster's fighting capabilities, we can consider this graph an indication of how the Wisdom score scales as the monsters become more powerful. We can create similar graphs for every statistic.
+
+```{r}
+ggplot(faceting) + geom_point(aes(x=CR, y=value), col=cols[6], alpha=.1) + facet_wrap(~facet_by) + theme_light() + labs(title="Core Statistic Scaling With Challenge Rating", y="Value",x="Challenge Rating")
+```
+
+The darkness of a point in these graphs indicates the number of entries at that point, with the darkest points representing 10 or more entries. We can see that most of the statistics follow a trend similar to the Wisdom score, scaling up with Challenge Rating. Dexterity, however, appears to be the exception, barely scaling at all as CR increases. Intelligence is also quite a weak positive correlation. Apparently, Intelligence and especially Dexterity are not the most key factors in determining a monster's difficulty in battle.
+
+### Core Stat Correlations
+
+```{r}
+ggplot(monsters) + geom_point(aes(x=DEX, y=STR), col=cols[6], alpha=.1, size = 3) + theme_light() + labs(title="Relationship Between Dexterity and Strength")
+```
+
+To conclude this report, we'll investigate the correlations between the core stats. Above is the plot of Strength vs Dexterity, with a correlation coefficient of `r round(cor(monsters$STR,monsters$DEX),2)`, indicating a weak negative correlation if anything at all. It appears that monsters may be any combination of dexterous and mighty, but in general, strength in one attribute may predict a weakness in the other.
+
+```{r}
+ggplot(monsters) + geom_point(aes(x=CON, y=STR), col=cols[6], alpha=.1, size = 3) + theme_light() + labs(title="Relationship Between Constitution and Strength")
+```
+
+Conversely, observing the relationship between Constitution and Strength yields a correlation coefficient of `r round(cor(monsters$STR,monsters$CON),2)`, indicating a strong positive correlation. A monster that is mighty will likely be tough to bring down. Rather than examine each of these graphs individually, we can create a grid of them, keeping the axes constant along vertical and horizontal lines.
+
+```{r}
+pairs(monsters[,4:9], pch = 19, col = rgb(.11,.42,.13, alpha=.03), main = "Relationships Between Core Statistics") #GOOD
+```
+
+Though this graph may seem overwhelming at first, it may help to recognize the last two graphs we looked at are the first and second graphs in this grid. Since they share the Strength score as their y-axis, they are in the first row, where every scatterplot's y-axis is Strength. Likewise the y-axes are held constant in the other rows, and the x-axes are held constant in the columns. A helpful intuition for this grid is that scatter plots that picture a dark line imply a strong correlation, such as the graph at the intersection of Intelligence and Charisma, and a pale scattering of points indicates weak or no correlation, such as the intersection of Intelligence and Strength. Feel free to study the grid for a second or two and speculate as to why certain attributes may be more or less correlated.
+
+## Conclusion
+
+Thanks for reading about my database and my hobby! I hope you found the mechanical storytelling of the game interesting, but most importantly, I hope you enjoyed reading.
+
+![](https://www.aidedd.org/dnd/images/white-dragon.jpg)
+
+## Fun and Games
+
+These are not necessarily parts of the formal report, but if I have this databse, I may as well have fun with it!
+
+### Random Monsters
+
+Since I imported the image links of these monsters, let's take a look at a few of them! Here is a table of three random monsters and their core stats, as well as their pictures, in order of the table
+
+```{r}
+boo <- sample(1:length(pictured$name), 3)
+
+kbl(pictured[boo,1:10]) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = F)
+
+knitr::include_graphics(pictured$image[boo])
+```
+
+### The Graph Gallery
+
+Over the course of this project, I made many graphs that I deemed extraneous, confusing, or downright useless in the final edit, but I'd still like to share some of the prettiest ones in an art for art's sake kind of way. Some of these graphs are unreadable, and provide little insight into the database, but I still find them pretty.
+
+```{r gravy graphs}
 #UNIVARIATES
-ggplot(monsters) + geom_histogram(aes(CR), binwidth = 1, col = 'red', fill='red', alpha = .6) + theme_light()
-ggplot(monsters) + geom_histogram(aes(AC), binwidth = 1, col = 'red', fill='red', alpha = .6) + theme_light()
-ggplot(monsters) + geom_density(aes(INT), binwidth = 1, col = 'red', fill='red', alpha = .6) + theme_light() + facet_wrap(~fire_imm)
-ggplot(monsters) + geom_boxplot(aes(x=INT, y=fire_imm, fill=fire_imm), alpha = .6) + theme_light()
+monsters <- unique(monster_array_it)
 
-#Comparing core stats by size
-ggplot(monsters) + geom_density(aes(DEX), col = 'red', fill='red', alpha = .3) + geom_density(aes(STR, y=-..density..), col = 'blue', fill='blue', alpha = .3) + theme_light() + facet_wrap(~fire_imm)
-
+ggplot(monsters) + geom_density(aes(x=CHA, fill=psychic_imm), alpha = .6) + facet_wrap(~psychic_imm) + theme_light()
+ggplot(monsters) + geom_density(aes(x=CHA, fill=psychic_imm), alpha = .6) + theme_light() #Gallery
+ggplot(monsters) + geom_density_ridges(aes(x=CHA, y=psychic_imm, fill=psychic_imm), alpha = .6) + theme_light() #GOOD
 
 #Faceting relationships by core stat
 facet_by <- stats
 faceting <- pivot_longer(monsters, cols = facet_by, names_to = "facet_by")
-ggplot(faceting) + geom_histogram(aes(x=value), fill='red', binwidth = 1, alpha = .6) + facet_wrap(~facet_by) + theme_light()
 ggplot(faceting) + geom_histogram(aes(x=value, fill=size), binwidth = 1, alpha = .6) + facet_wrap(~facet_by) + theme_light()
 
 #Core by Size
 ggplot(faceting) + geom_boxplot(aes(x=value, y=fct_reorder(size, value, .fun = median), fill=size), show.legend = FALSE) + facet_wrap(~facet_by) + theme_light()
-ggplot(faceting) + geom_boxplot(aes(x=value, y=fct_reorder(simple_alignment, value, .fun = median), fill=simple_alignment), show.legend = FALSE) + facet_wrap(~facet_by) + theme_light()
-ggplot(faceting) + geom_boxplot(aes(x=value, y=Abyssal, fill=Abyssal), show.legend = FALSE) + facet_wrap(~facet_by) + theme_light()
 
-#CR and Core
-ggplot(faceting) + geom_point(aes(x=CR, y=value), alpha=.1) + facet_wrap(~facet_by) + theme_light()
-ggplot(faceting) + geom_density_2d(aes(x=CR, y=value)) + facet_wrap(~facet_by) + theme_light()
 #HP and Core
 ggplot(faceting) + geom_point(aes(x=HP, y=value), alpha = .1) + facet_wrap(~facet_by) + theme_light()
 ggplot(faceting) + geom_density_2d(aes(x=HP, y=value)) + facet_wrap(~facet_by) + theme_light()
-#AC and Core
-ggplot(faceting) + geom_point(aes(x=AC, y=value), alpha = .1) + facet_wrap(~facet_by) + theme_light()
-ggplot(faceting) + geom_density_2d(aes(x=AC, y=value)) + facet_wrap(~facet_by) + theme_light()
 
-#The six stats and the relationships to others
-faceting$stat <- rep(monsters$STR, each=6)
-ggplot(faceting) + geom_point(aes(x=value, y=stat), alpha=.1) + facet_wrap(~facet_by) + theme_light()
-faceting$stat <- rep(monsters$DEX, each=6)
-ggplot(faceting) + geom_point(aes(x=value, y=stat), alpha=.1) + facet_wrap(~facet_by) + theme_light()
-faceting$stat <- rep(monsters$CON, each=6)
-ggplot(faceting) + geom_point(aes(x=value, y=stat), alpha=.1) + facet_wrap(~facet_by) + theme_light()
-faceting$stat <- rep(monsters$INT, each=6)
-ggplot(faceting) + geom_point(aes(x=value, y=stat), alpha=.1) + facet_wrap(~facet_by) + theme_light()
-faceting$stat <- rep(monsters$WIS, each=6)
-ggplot(faceting) + geom_point(aes(x=value, y=stat), alpha=.1) + facet_wrap(~facet_by) + theme_light()
-faceting$stat <- rep(monsters$CHA, each=6)
-ggplot(faceting) + geom_point(aes(x=value, y=stat), alpha=.1) + facet_wrap(~facet_by) + theme_light()
+#Psychic Immunity
+ggplot(faceting) + geom_density_ridges(aes(x=value, y=psychic_imm, fill=psychic_imm), show.legend = FALSE) + facet_wrap(~facet_by) + theme_light()
 
-#FAT GRID
-pairs(monsters[,7:12*2+1], pch = 19, col = rgb(0,0,0, alpha=.05), main = "Relationships Between Core Statistics")
+#Languages
+ggplot(faceting) + geom_boxplot(aes(x=value, y=Giant, fill=Giant), show.legend = FALSE) + facet_wrap(~facet_by) + theme_light()
 
 ggplot(faceting) + geom_point(aes(x=CR, y=value), alpha=.1) + facet_grid(facet_by~size) + theme_light()
 
-#Strength by Size
-ggplot(monsters) + geom_boxplot(aes(x=STR, y=size, fill=fct_reorder(size, STR, .fun = median)), show.legend = FALSE) +theme_light()
-#AC by Size
-ggplot(monsters) + geom_boxplot(aes(x=AC, y=size, fill=size), show.legend = FALSE) +theme_light()
 #HP by Size
 ggplot(monsters) + geom_boxplot(aes(x=HP, y=fct_reorder(size, HP, .fun = median), fill=fct_reorder(size, HP, .fun = median)), show.legend = FALSE) +theme_light()
 #Cha by type
-ggplot(monsters) + geom_boxplot(aes(x=CHA, y=fct_reorder(type, CHA, .fun = median), fill=fct_reorder(type, CHA, .fun = median)), show.legend = FALSE) +theme_light()
-#Number of each type
-ggplot(monsters) +geom_bar(aes(y=fct_reorder(type, type, .fun = length), fill = simple_alignment)) + theme_light()
+ggplot(monsters) + geom_boxplot(aes(x=CHA, y=fct_reorder(type, CHA, .fun = median), fill=fct_reorder(type, CHA, .fun = median)), show.legend = FALSE) +theme_light() #GOOD
 
-ggplot(monsters) +geom_bar(aes(y=fct_reorder(source, source, .fun = length))) + theme_light()
-ggplot(monsters) +geom_bar(aes(y=fct_reorder(alignment, alignment, .fun = length))) + theme_light()
 #ggplot(monsters) +geom_bar(aes(y=`Nonmagical Immunity`)) + theme_light()
 #ggplot(monsters) +geom_bar(aes(y=`Nonmagical Resistance`)) + theme_light()
 #AC over CR
@@ -350,26 +468,10 @@ ggplot(monsters) + geom_point(aes(y=AC, x=CR), alpha=.1) + geom_density_2d(aes(y
 ggplot(monsters) + geom_point(aes(y=AC, x=CR), alpha=.1) + theme_light()
 ggplot(monsters) + geom_density_2d(aes(y=AC, x=CR)) + theme_light()
 ggplot(monsters) + geom_density_2d_filled(aes(y=AC, x=CR), show.legend = FALSE) + theme_light()
-ggplot(monsters) + geom_point(aes(y=AC, x=CR), alpha=.1) + theme_light() + facet_wrap(~size)
-ggplot(monsters) + geom_point(aes(y=AC, x=CR), alpha=.1) + theme_light() + facet_wrap(~simple_alignment)
-ggplot(monsters) + geom_point(aes(y=AC, x=CR), alpha=.1) + theme_light() + facet_wrap(~type)
-#Alignment by type
-ggplot(monsters) + geom_col(aes(y=type, x=1, fill=fct_reorder(simple_alignment, simple_alignment, .fun = length)),position = "fill") + theme_light()
 
 #Core stats by type
 ggplot(monsters) + geom_col(aes(x=STR, y=1, fill=fct_reorder(type, STR, .fun = median)), alpha = .6) + theme_light()
 
-#CR distribution by type
-ggplot(monsters) + geom_histogram(aes(x=CR), fill='red', binwidth = 1, alpha = .6) + facet_wrap(~type) + theme_light()
-stat <- stats[1]
-
-ggplot(monsters) + geom_boxplot(aes(x=STR, y=fct_reorder(type, STR, .fun = median), fill=type), show.legend = FALSE) +theme_light()
-ggplot(monsters) + geom_boxplot(aes(x=DEX, y=fct_reorder(type, DEX, .fun = median), fill=type), show.legend = FALSE) +theme_light()
-ggplot(monsters) + geom_boxplot(aes(x=CON, y=fct_reorder(type, CON, .fun = median), fill=type), show.legend = FALSE) +theme_light()
-ggplot(monsters) + geom_boxplot(aes(x=INT, y=fct_reorder(type, INT, .fun = median), fill=type), show.legend = FALSE) +theme_light()
-ggplot(monsters) + geom_boxplot(aes(x=WIS, y=fct_reorder(type, WIS, .fun = median), fill=type), show.legend = FALSE) +theme_light()
-ggplot(monsters) + geom_boxplot(aes(x=CHA, y=fct_reorder(type, CHA, .fun = median), fill=type), show.legend = FALSE) +theme_light()
-
-#AC by type
-ggplot(monsters) + geom_boxplot(aes(x=AC, y=fct_reorder(type, AC, .fun = median), fill=type), show.legend = FALSE) +theme_light()
 ```
+
+
